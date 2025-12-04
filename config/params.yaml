@@ -42,10 +42,10 @@ transform:
 
   # 以下是ENTERPRIZE 2025赛季雷达站的实际相机参数
   # 如果你要使用ENTERPRIZE开源的第视角视频,请务必修改以下参数为你的相机参数
-  K: [[5033.780199, 0.000000, 2829.234535],
-      [0.000000, 5036.139955, 1929.489557],
+  K: [[3459.981717, 0.000000, 1523.076759],
+      [0.000000, 3469.145301, 1019.198285],
       [0.000000, 0.000000, 1.000000]]
-  dist_coeffs: [-0.061883, 0.104794, 0.000434, -0.000036, 0.000000]
+  dist_coeffs: [-0.091955, 0.395148, 0.003058, -0.000456, 0.000000]
   verbose: true
 
   ## The below parameters are only used for mimic or demostration purposes
@@ -68,7 +68,7 @@ referee:
   baudrate: 115200            ## 串口波特率
 
 debug:
-  inference_video: true                   # 是否启用视频推理
+  inference_video: false                   # 是否启用视频推理
   video_source: "path/to/your/video.mp4"  # 视频源路径
   streaming_video: false                  # 是否录制视频
 

@@ -2,15 +2,15 @@ camera:
   acquisition_rate: 19.0
   exposure_time: 10000
   gain: 23.0
-  width: 5472
-  height: 3648
-  camera_matrix: [5018.847427, 0.000000, 2945.637471,
-                  0.000000, 5001.932889, 1964.108520,
+  width: 3072
+  height: 2048
+  camera_matrix: [3459.981717, 0.000000, 1523.076759,
+                  0.000000, 3469.145301, 1019.198285,
                   0.000000, 0.000000, 1.000000]
-  dist_coeffs: [-0.060205, 0.116970, -0.000497, 0.001010, 0.000000]
+  dist_coeffs: [-0.091955, 0.395148, 0.003058, -0.000456, 0.000000]
   display_fps: true
   recording_workers_num: 2
-  recording_save_root_dir: /home/siyu/rm/data/mnt/ssd
+  recording_save_root_dir: /data/camera_records #运行docker容器时，挂载docker run -v /path/to/host/data:/data your-docker-image
   
 
 
