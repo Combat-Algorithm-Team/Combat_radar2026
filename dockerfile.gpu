@@ -47,7 +47,11 @@ RUN python3 -m pip install --upgrade pip setuptools wheel
 
 # PyTorch CUDA (12.x) per official index
 # Use cu121 wheel channel
-RUN python3 -m pip install --no-cache-dir \
+# Remove conflicting system Python packages to avoid distutils uninstall errors
+RUN apt-get update && apt-get remove -y --no-install-recommends python3-sympy || true && rm -rf /var/lib/apt/lists/*
+
+# Install PyTorch CUDA (cu121) and deps; allow breaking system packages for container use
+RUN python3 -m pip install --no-cache-dir --break-system-packages \
     --index-url https://download.pytorch.org/whl/cu121 \
     torch torchvision torchaudio
 
@@ -59,7 +63,7 @@ RUN python3 -m pip install --no-cache-dir \
     onnx onnxruntime-gpu
 
 # Frequently used Python packages
-RUN python3 -m pip install --no-cache-dir \
+RUN python3 -m pip install --no-cache-dir --break-system-packages \
     numpy==2.1.2 opencv-python==4.12.0.88 ultralytics==8.3.163 \
     pandas matplotlib rich pyyaml pillow
 
@@ -69,10 +73,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xfixes0 \
  && rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m pip install --no-cache-dir PyQt5 PyQt5-sip
+RUN python3 -m pip install --no-cache-dir --break-system-packages PyQt5 PyQt5-sip
 
 # rosdep optional (skip update to avoid GH rate issues)
-# RUN rosdep init || true && rosdep update || true
+#RUN rosdep init || true && rosdep update || true
 
 # Bash rc convenience
 RUN echo "source /opt/ros/humble/setup.bash" >> /etc/bash.bashrc \
@@ -85,3 +89,4 @@ ENV NVIDIA_VISIBLE_DEVICES=all \
 
 WORKDIR /workspace
 CMD ["/bin/bash"]
+
