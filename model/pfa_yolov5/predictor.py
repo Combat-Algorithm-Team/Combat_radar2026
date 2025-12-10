@@ -75,8 +75,10 @@ class YOLOv5Detector:
         return im
 
     def preprocess_batch(self, img: List[np.ndarray]):
+        # 强制禁用 auto=True，确保所有图片都被 resize 到完全相同的尺寸 (self.img_size)
+        # 否则 letterbox 会根据长宽比自动调整 stride，导致不同图片尺寸不一致，无法 stack
         im = [
-            letterbox(image, self.img_size, self.model.stride, auto=self.model.pt)[0]
+            letterbox(image, self.img_size, self.model.stride, auto=False)[0]
             for image in img
         ]
         # im = [image.transpose((2, 0, 1))[::-1] for image in im]
@@ -113,19 +115,18 @@ class YOLOv5Detector:
 
         for i, det in enumerate(pred):
             if len(det):
-                det[:, :4] = scale_boxes(im.shape[2:], det[:, :4], im0.shape).round()
+                # 确保 im0 是单张图片，而不是 batch 列表
+                current_im0 = im0[i] if isinstance(im0, list) else im0
+                
+                # scale_boxes 需要正确的原始图片尺寸
+                det[:, :4] = scale_boxes(im.shape[2:], det[:, :4], current_im0.shape).round()
                 for *xyxy, conf, cls in reversed(det):
-                    xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4))).view(-1).tolist()
-                    xywh = [round(x) for x in xywh]
-                    xywh = [
-                        xywh[0] - xywh[2] // 2,
-                        xywh[1] - xywh[3] // 2,
-                        xywh[2],
-                        xywh[3],
-                    ]
+                    # 修复：直接使用 xyxy，不需要转换成 xywh 再转回来
+                    # xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4))).view(-1).tolist()
+                    
                     if self.visualize:
                         annotator = Annotator(
-                            np.ascontiguousarray(im0),
+                            np.ascontiguousarray(current_im0),
                             line_width=3,
                             example=str(self.names),
                         )
@@ -163,11 +164,26 @@ class YOLOv5Detector:
         im = self.preprocess_batch(img)
         pred = self.model(im, augment=self.augment, visualize=self.visualize)
 
+        # 如果 pred 是 list 或 tuple，通常第一个元素是推理结果 Tensor (Batch, Num_Anchors, 85)
+        if isinstance(pred, (list, tuple)):
+            pred = pred[0]
+
         results = []
         annot_imgs = []
         for i in range(len(img)):
+            # pred 现在应该是 Tensor (Batch, Num_Anchors, 85)
+            # 取第 i 个样本的预测结果
+            current_pred = pred[i]
+
+            # 确保维度正确: (Num_Anchors, 85) -> (1, Num_Anchors, 85) 以便传入 postprocess
+            if len(current_pred.shape) == 2: 
+                 current_pred = current_pred.unsqueeze(0)
+
+            # 处理 im: im 是 Tensor (Batch, C, H, W)，切片后是 (C, H, W)，需要 unsqueeze 变回 (1, C, H, W)
+            current_im = im[i].unsqueeze(0)
+
             detections, annot_img = self.postprocess(
-                pred[i].unsqueeze(0), im[i].unsqueeze(0), im0[i]
+                current_pred, current_im, im0[i]
             )
             results.append(detections)
             if self.visualize:

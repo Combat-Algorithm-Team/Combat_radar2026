@@ -10,29 +10,36 @@ ENV TZ=Asia/Shanghai \
     LC_ALL=C.UTF-8 \
     PIP_NO_CACHE_DIR=1 \
     http_proxy=${HTTP_PROXY} \
-    https_proxy=${HTTPS_PROXY}
+    https_proxy=${HTTPS_PROXY} \
+    QT_QPA_PLATFORM=xcb
 
 SHELL ["/bin/bash","-c"]
 
-# Locale/timezone
+# 1. 系统基础配置与依赖安装 (阿里云源加速)
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
  && echo $TZ >/etc/timezone \
+ # 替换 APT 源为阿里云
+ && sed -i 's@//.*archive.ubuntu.com@//mirrors.aliyun.com@g' /etc/apt/sources.list \
+ && sed -i 's@//.*security.ubuntu.com@//mirrors.aliyun.com@g' /etc/apt/sources.list \
  && apt-get update \
- && apt-get install -y --no-install-recommends locales \
- && locale-gen en_US.UTF-8 zh_CN.UTF-8 \
- && rm -rf /var/lib/apt/lists/*
-
-# Core tools & libs
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
+ && apt-get install -y --no-install-recommends \ 
+    # 基础工具
     bash-completion build-essential ca-certificates curl ffmpeg git gnupg2 \
+    lsb-release pkg-config software-properties-common sudo tmux udev vim wget \
+    # Python 环境
+    python3 python3-dev python3-pip python3-venv \
+    # 常用库
     libcanberra-gtk3-module libeigen3-dev libfftw3-dev libgl1 libglib2.0-0 \
-    libgoogle-glog-dev libgflags-dev libopencv-dev libpcl-dev libusb-1.0-0-dev \
-    lsb-release mesa-utils pkg-config python3 python3-dev python3-pip python3-venv \
-    software-properties-common sudo tmux udev vim wget \
+    libgoogle-glog-dev libgflags-dev libopencv-dev libpcl-dev libusb-1.0-0-dev mesa-utils \
+    # Qt5 完整依赖
+    libqt5gui5 libqt5core5a libqt5dbus5 \
+    libxkbcommon0 libxkbcommon-x11-0 libdbus-1-3 \
+    libxcb-xinerama0 libxcb-icccm4 libxcb-image0 \
+    libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xfixes0 \
+    libxcb-cursor0 \
  && rm -rf /var/lib/apt/lists/*
 
-# ROS 2 Humble apt repo
+# 2. ROS 2 Humble 安装 (官方源，稳定性优先)
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | gpg --dearmor -o /usr/share/keyrings/ros-archive-keyring.gpg \
  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" \
     > /etc/apt/sources.list.d/ros2.list \
@@ -42,51 +49,51 @@ RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | g
     python3-vcstool python3-empy python3-lark ros-humble-desktop \
  && rm -rf /var/lib/apt/lists/*
 
-# Python toolchain
-RUN python3 -m pip install --upgrade pip setuptools wheel
+# 3. Python 环境清理与升级 (阿里云源加速)
+RUN apt-get remove -y \
+    python3-blinker python3-certifi python3-charset-normalizer \
+    python3-idna python3-urllib3 python3-sympy python3-numpy python3-pillow \
+    python3-yaml python3-requests \
+ || true \
+ && python3 -m pip install --upgrade pip setuptools wheel -i https://mirrors.aliyun.com/pypi/simple/
 
-# PyTorch CUDA (12.x) per official index
-# Use cu121 wheel channel
-# Remove conflicting system Python packages to avoid distutils uninstall errors
-RUN apt-get update && apt-get remove -y --no-install-recommends python3-sympy || true && rm -rf /var/lib/apt/lists/*
-
-# Install PyTorch CUDA (cu121) and deps; allow breaking system packages for container use
-RUN python3 -m pip install --no-cache-dir --break-system-packages \
+# 4. PyTorch 安装 (官方源，确保 CUDA 12.1 兼容性)
+# 策略：先从阿里云下载大体积的 NVIDIA 依赖库，再从官方源下载 Torch 主体，并增加超时时间
+RUN python3 -m pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ \
+    "nvidia-cuda-nvrtc-cu12==12.1.105" \
+    "nvidia-cuda-runtime-cu12==12.1.105" \
+    "nvidia-cuda-cupti-cu12==12.1.105" \
+    "nvidia-cudnn-cu12==9.1.0.70" \
+    filelock typing-extensions networkx jinja2 fsspec \
+ && python3 -m pip install --no-cache-dir --ignore-installed -i https://mirrors.aliyun.com/pypi/simple/ "sympy==1.13.1" \
+ && python3 -m pip install --no-cache-dir --default-timeout=3000 \
     --index-url https://download.pytorch.org/whl/cu121 \
     torch torchvision torchaudio
 
-# TensorRT runtime & Python bindings (runtime-only)
-# Note: On WSL2, prefer pip wheels for TensorRT 10.x when available
-RUN python3 -m pip install --no-cache-dir \
-    tensorrt==10.2.0 \
-    polygraphy \
-    onnx onnxruntime-gpu
+# 5. 核心依赖安装 (阿里云源加速)
+# 使用 --ignore-installed 解决 blinker 等系统包卸载失败问题
+# 强制指定 numpy 版本，并降低 opencv 版本以兼容 numpy 1.x
+RUN python3 -m pip install --no-cache-dir --ignore-installed \
+    -i https://mirrors.aliyun.com/pypi/simple/ \
+    "numpy==1.26.4" \
+    "opencv-python-headless==4.10.0.84" \
+    "ultralytics==8.3.163" \
+    "tensorrt==10.2.0" \
+    polygraphy onnx onnxruntime-gpu \
+    pandas matplotlib rich pyyaml pillow \
+    pyserial pydantic open3d requests scikit-learn seaborn filterpy \
+    PyQt5 PyQt5-sip
 
-# Frequently used Python packages
-RUN python3 -m pip install --no-cache-dir --break-system-packages \
-    numpy==2.1.2 opencv-python==4.12.0.88 ultralytics==8.3.163 \
-    pandas matplotlib rich pyyaml pillow
-
-# GUI & Qt deps (optional; X11 via Windows X server like X410 or vcXsrv)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libxcb-xinerama0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 \
-    libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xfixes0 \
- && rm -rf /var/lib/apt/lists/*
-
-RUN python3 -m pip install --no-cache-dir --break-system-packages PyQt5 PyQt5-sip
-
-# rosdep optional (skip update to avoid GH rate issues)
-#RUN rosdep init || true && rosdep update || true
-
-# Bash rc convenience
-RUN echo "source /opt/ros/humble/setup.bash" >> /etc/bash.bashrc \
+# 6. 清理与收尾
+RUN python3 -m pip uninstall -y opencv-python || true \
+ && rm -rf /usr/local/lib/python3.*/dist-packages/cv2/qt \
+ && echo "source /opt/ros/humble/setup.bash" >> /etc/bash.bashrc \
  && echo "[ -f /workspace/install/setup.bash ] && source /workspace/install/setup.bash" >> /etc/bash.bashrc \
  && ln -sf /usr/bin/python3 /usr/bin/python || true
 
-# CUDA quick sanity in container (nvidia-container-toolkit required on host)
+# 7. 容器启动配置
 ENV NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 WORKDIR /workspace
 CMD ["/bin/bash"]
-

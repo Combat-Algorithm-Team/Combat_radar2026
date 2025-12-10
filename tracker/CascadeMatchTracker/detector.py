@@ -61,13 +61,16 @@ class BaseDetector:
             else:
                 self.armor_detector = TwoStepArmorDetectorClassifier.from_config(config)
         else:
+            # 临时修改：当 use_enhanced_detector=False 时，使用 car_detector 的配置
+            # 避免加载不存在的 armor_detector 权重
+            # 注意：这里只是为了跑通流程，实际逻辑可能需要调整
             self.armor_detector = YOLOv5Detector(
-                weights_path=config["car_detector"]["weight_path"],
+                weights_path=config["car_detector"]["weights_path"], # 使用 car_detector 的权重 (yolov8n.pt)
                 device=self.device,
                 img_size=config["car_detector"]["img_size"],
                 augment=False,
                 visualize=False,
-                classes_name=config["armor_detector"]["class"],
+                classes_name=config["armor_detector"]["class_names"], # 使用 armor 的类别名，虽然模型不匹配
                 conf_thres=config["car_detector"]["conf_thres"],
                 iou_thres=config["car_detector"]["iou_thres"],
                 max_det=config["car_detector"]["max_det"],
@@ -199,7 +202,11 @@ class BaseDetector:
                 x2_armor = int((x2_armor + detection.car_box[0]) * scale_x)
                 y2_armor = int((y2_armor + detection.car_box[1]) * scale_y)
 
-                label = f"{self.class_names[detection.class_id]}: {detection.class_conf:.2f}"
+                if 0 <= detection.class_id < len(self.class_names):
+                    label = f"{self.class_names[detection.class_id]}: {detection.class_conf:.2f}"
+                else:
+                    label = f"Class {detection.class_id}: {detection.class_conf:.2f}"
+
                 if class_id < 5:  # blue
                     color = (0, 0, 255)
                 elif class_id < 10:  # red

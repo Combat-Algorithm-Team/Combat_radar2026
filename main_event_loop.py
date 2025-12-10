@@ -34,7 +34,7 @@ class MainEventLoop:
     
     _instance = None
 
-    def __init__(self, camera, referee: RefereeCommManager):
+    def __init__(self, camera, referee: RefereeCommManager = None):
         # print(f"In initializer: {calibrated_R}, {calibrated_T}")
         self.config = yaml.safe_load(open("config/params.yaml", "r"))
         self.camera = camera
@@ -312,7 +312,10 @@ class MainEventLoop:
             time.sleep(0.01)
             start = time.time()
             # Update faction
-            self.faction = self.referee.get_faction()
+            if self.referee:
+                self.faction = self.referee.get_faction()
+            else:
+                self.faction = FACTION.UNKONWN
 
             try:
                 # Get the latest frame from the camera
@@ -346,8 +349,9 @@ class MainEventLoop:
                             x=-1, y=-1, is_valid=False
                         )
                 ## send the message to the sentry and the referee
-                self.referee.radar2sentry_msg = self.pack_radar2sentrymsg()
-                self.referee.radar2client_msg = self.pack_radar2clientmsg()
+                if self.referee:
+                    self.referee.radar2sentry_msg = self.pack_radar2sentrymsg()
+                    self.referee.radar2client_msg = self.pack_radar2clientmsg()
             
             except Exception as e:
                 import traceback

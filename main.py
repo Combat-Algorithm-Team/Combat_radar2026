@@ -67,9 +67,13 @@ if __name__ == "__main__":
         from driver.hik_camera.hik import SimpleHikCamera
         camera = SimpleHikCamera(args)
 
-    referee = RefereeCommManager(port=yaml_config["referee"]["port"], 
-                                baudrate=yaml_config["referee"]["baudrate"])   
-    referee.start()
+    referee = None
+    if yaml_config.get("system", {}).get("enable_referee", True):
+        referee = RefereeCommManager(port=yaml_config["referee"]["port"], 
+                                    baudrate=yaml_config["referee"]["baudrate"])   
+        referee.start()
+    else:
+        print("⚠️ Referee system disabled by config")
 
     event_loop = MainEventLoop(
         camera = camera, referee=referee
@@ -89,7 +93,8 @@ if __name__ == "__main__":
             time.sleep(0.1)
     except KeyboardInterrupt:
         print("KeyboardInterrupt received, stopping...")
-        referee.close()
+        if referee:
+            referee.close()
         camera.stop_streaming()
         camera.stop_saving_images()
         camera.close()

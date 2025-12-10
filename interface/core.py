@@ -44,9 +44,9 @@ class RadarStationMainWindow(QMainWindow):
         self.camera = SimpleHikCamera._instance
         
         self.referee = RefereeCommManager._instance
-        assert (
-            self.referee is not None
-        ), "Referee Comm Manager instance is not initialized."
+        if self.referee is None:
+            self.logger.warning("Referee Comm Manager instance is not initialized. Running in offline mode.")
+        
         assert self.camera is not None, "Hik Camera instance is not initialized."
         self.camera.register_group("radar_station")
         self.is_setting_exposure = False
@@ -546,21 +546,21 @@ class RadarStationMainWindow(QMainWindow):
             if camera_connected:
                 self.get_camera_fps()
 
-        if hasattr(self.referee, "is_connected"):
+        if self.referee and hasattr(self.referee, "is_connected"):
             referee_connected = self.referee.is_connected()
             self.referee_status.update_status(referee_connected)
 
-        if hasattr(self.referee, "is_sentry_connected"):
+        if self.referee and hasattr(self.referee, "is_sentry_connected"):
             sentry_connected = self.referee.is_sentry_connected
             self.sentry_status.update_status(sentry_connected)
 
-        if hasattr(self.referee, "sentry_received_flag"):
+        if self.referee and hasattr(self.referee, "sentry_received_flag"):
             sentry_received = self.referee.sentry_received_flag
             self.sentry_received.update_status(sentry_received)
 
         from driver.referee.referee_comm import FACTION
 
-        if hasattr(self.referee, "get_faction"):
+        if self.referee and hasattr(self.referee, "get_faction"):
             match self.referee.get_faction():
                 case FACTION.BLUE:
                     self.team_label.setStyleSheet("color: blue; font-size: 12px")
@@ -570,11 +570,11 @@ class RadarStationMainWindow(QMainWindow):
                     self.team_label.setText("当前阵营：红方")
 
         # 新增：更新双倍易伤状态
-        if hasattr(self.referee, "is_double_vulnerability"):
+        if self.referee and hasattr(self.referee, "is_double_vulnerability"):
             self.update_double_damage_status(self.referee.is_double_vulnerability)
 
         # 新增：更新双倍易伤触发次数
-        if hasattr(self.referee, "double_vulnerability_count"):
+        if self.referee and hasattr(self.referee, "double_vulnerability_count"):
             total_count = 2
             used_count = self.referee.double_vulnerability_count
             self.update_double_damage_count(used_count, total_count)
@@ -597,12 +597,12 @@ class RadarStationMainWindow(QMainWindow):
         
     def on_reset_referee(self):
         """重置裁判系统状态"""
-        if hasattr(self.referee, "reset_double_trigger_state"):
+        if self.referee and hasattr(self.referee, "reset_double_trigger_state"):
             self.referee.reset_double_trigger_state()
             self.log_text.append("已重置裁判系统状态")
             print("Request count:", self.referee.request_count)
         else:
-            QMessageBox.warning(self, "错误", "裁判系统不支持重置操作")
+            QMessageBox.warning(self, "错误", "裁判系统不支持重置操作或未连接")
 
     def on_exposure_confirm(self):
         """确认设置曝光值"""
@@ -2252,19 +2252,17 @@ class KeypointCalibrationDialog(QDialog):
 
 def launch():
     """启动雷达站主界面"""
-    print(QCoreApplication.libraryPaths())
-    QCoreApplication.setLibraryPaths(
-        [
-            "/home/fallengold/miniconda3/envs/radar/lib/python3.10/site-packages/PyQt5/Qt5/plugins"
-        ]
-    )
+    # print(QCoreApplication.libraryPaths())
+    # 移除硬编码的路径，让 PyQt5 自动查找插件
+    # QCoreApplication.setLibraryPaths(...)
+    
     import os
-
-    os.environ["QT_PLUGIN_PATH"] = (
-        "/home/fallengold/miniconda3/envs/radar/lib/python3.10/site-packages/PyQt5/Qt5/plugins"
-    )
+    # 移除硬编码的环境变量设置
+    # os.environ["QT_PLUGIN_PATH"] = ...
+    
     os.environ["QT_LOGGING_RULES"] = "qt5ct.debug=false"
-    os.environ["QT_QPA_PLATFORM"] = "xcb"
+    # os.environ["QT_QPA_PLATFORM"] = "xcb" # Dockerfile 中已设置，此处可保留或注释
+    
     app = QApplication(sys.argv)
     app.setStyle("Fusion")  # 设置应用样式
     window = RadarStationMainWindow()
