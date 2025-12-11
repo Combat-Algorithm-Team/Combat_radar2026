@@ -1,33 +1,48 @@
 {
-  "name": "radar-dev",
-  "image": "radar-dev:cpu",
+  "name": "radar-dev-gpu",
+  "image": "radar-dev:gpu_3",
+
+  // 【核心修改】强制将本地项目根目录挂载到容器内的 /workspace
+  // source=${localWorkspaceFolder} 代表您宿主机的 ~/Combat_radar2026
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+
+  // 告诉 VS Code 打开这个路径
   "workspaceFolder": "/workspace",
-  "containerEnv": {
-    "DISPLAY": "${localEnv:DISPLAY}",
-    "QT_X11_NO_MITSHM": "1",
-    "LD_LIBRARY_PATH": "/opt/MVS/bin:/opt/MVS/lib/64:${containerEnv:LD_LIBRARY_PATH}"
-  },
+
+  "remoteUser": "root",
+
   "runArgs": [
+    "--gpus", "all",
     "--privileged",
     "--net=host",
+    "--ipc=host",
+    "--shm-size=8g",
+    "--device", "/dev/dri",
     "-v", "/tmp/.X11-unix:/tmp/.X11-unix:rw",
-    "-v", "${localEnv:HOME}/.Xauthority:${localEnv:HOME}/.Xauthority:rw",
     "-v", "/dev:/dev:rw",
     "-v", "/lib/modules:/lib/modules:ro",
     "-v", "/opt/MVS:/opt/MVS:ro"
   ],
+
+  "containerEnv": {
+    "DISPLAY": "${localEnv:DISPLAY}",
+    "QT_X11_NO_MITSHM": "1",
+    "CUDA_HOME": "/usr/local/cuda",
+    "LD_LIBRARY_PATH": "/opt/MVS/bin:/opt/MVS/lib/64:/usr/local/cuda/lib64:${containerEnv:LD_LIBRARY_PATH}"
+  },
+
   "customizations": {
     "vscode": {
       "extensions": [
         "ms-python.python",
         "ms-python.vscode-pylance",
-        "ms-azuretools.vscode-docker"
+        "ms-azuretools.vscode-docker",
+        "ms-vscode.cpptools"
       ],
       "settings": {
         "terminal.integrated.defaultProfile.linux": "bash",
         "python.defaultInterpreterPath": "/usr/bin/python3"
       }
     }
-  },
-  "remoteUser": "root"
+  }
 }
