@@ -96,7 +96,8 @@ if __name__ == "__main__":
         if referee:
             referee.close()
         camera.stop_streaming()
-        camera.stop_saving_images()
+        if hasattr(camera, 'stop_saving_images'):
+            camera.stop_saving_images()
         camera.close()
         event_loop.stop()
         

@@ -23,6 +23,7 @@ class BaseDetector:
             conf_thres=config["car_detector"]["conf_thres"],
             iou_thres=config["car_detector"]["iou_thres"],
             tracker_config_path=config["car_detector"]["tracker_config_path"],
+            device=self.device,  # 传入 device 参数
         )
 
         self.use_enhanced_detector = config["armor_detector"]["use_enhanced_detector"]

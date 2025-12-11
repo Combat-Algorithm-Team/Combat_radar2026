@@ -26,7 +26,9 @@ class PredictorWithTracker:
         self.max_det = max_det
 
         self.model = YOLO(model_path, task="detect")
-        self.device = self.model.device
+        # 显式设置设备，确保使用 GPU（如果指定）
+        self.model.to(device)
+        self.device = device  # 使用传入的 device 参数而不是 YOLO 自动检测的
         print(f"Using device: {self.device}")
         # self.model = self.model.to(self.device)
         # self.model.eval()
